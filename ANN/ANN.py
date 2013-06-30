@@ -15,22 +15,22 @@ class ANN:
 		
 	def build(self,inNum,hidNum,outNum):
 		# node number
-		self.inNum = inNum
-		self.hidNum = hidNum
+		self.inNum = inNum + 1
+		self.hidNum = hidNum + 1
 		self.outNum = outNum
 		# node outputs
-		self.inOutput = [0.0]*inNum
-		self.hidOutput = [0.0]*hidNum
-		self.outOutput = [0.0]*outNum
+		self.hidOutput = [0.0]*self.hidNum
+		self.hidOutput[0] = 1.0
+		self.outOutput = [0.0]*self.outNum
 		# node outputs error
-		self.hidOutputError = [0.0]*hidNum
-		self.outOutputError = [0.0]*outNum
+		self.hidOutputError = [0.0]*self.hidNum
+		self.outOutputError = [0.0]*self.outNum
 		# weights matrix
 		self.wIn2Hid = [[0.0]*self.hidNum for i in xrange(self.inNum)]
 		self.wHid2Out = [[random()/10]*self.outNum for j in xrange(self.hidNum)]
 		
 	def feedForward(self):
-		for j in xrange(self.hidNum):
+		for j in xrange(1,self.hidNum):
 			sum = 0.0
 			for i in xrange(self.inNum):
 				sum += self.inOutput[i]*self.wIn2Hid[i][j]
@@ -63,7 +63,7 @@ class ANN:
 				
 		# update input-hid weights
 		for i in xrange(self.inNum):
-			for j in xrange(self.hidNum):
+			for j in xrange(1,self.hidNum):
 				change = N*self.hidOutputError[j]*self.inOutput[i]
 				self.wIn2Hid[i][j] += change
 	
@@ -71,12 +71,15 @@ class ANN:
 		im = Image.open(file)
 		pixels = array(im.getdata())
 		pixels = pixels.reshape(1,-1)/255.0
-		return pixels.tolist()[0]
+		pixels = pixels.tolist()[0]
+		pixels.insert(0,1.0)
+		return pixels
 	
-	def train(self):
+	def train(self,loop=500):
 		diremap = {'straight':0,'right':1,'left':2,'up':3}
-		loop = 0
-		while True:
+		best = 0.0
+		tc = 0
+		for l in xrange(loop):
 			for root,dirs,files in os.walk(self.trainPath):
 				for file in files:
 					dire = file.split('_')[1]
@@ -85,9 +88,18 @@ class ANN:
 					self.inOutput = self.readPgm(root+'\\'+file)
 					self.feedForward()
 					self.backPropagate()
-			loop += 1
-			if loop%20 == 0 and self.verify()>0.9:
-				break
+					tc += 1
+					
+					if tc % 60 == 0:
+						v = self.verify()
+						if v>best:
+							best = v
+							self.bestWIn2Hid = self.wIn2Hid
+							self.bestWHid2Out = self.wHid2Out
+						print v,best
+		
+		self.wIn2Hid = self.bestWIn2Hid
+		self.wHid2Out = self.bestWHid2Out
 	
 	def verify(self):
 		right = 0
@@ -106,7 +118,6 @@ class ANN:
 				else:
 					wrong += 1
 		p = 1.0*right/(right+wrong)
-		print	p
 		return p
 		
 	def test(self):
